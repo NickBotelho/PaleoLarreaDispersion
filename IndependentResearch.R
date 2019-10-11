@@ -8,35 +8,14 @@ library(rgbif)
 library(maps)
 library(dplyr)
 library(ggplot2)
-
-devtools::install_github('oshea-patrick/RSpatial')
 library(RSpatial)
+devtools::install_github('oshea-patrick/RSpatial')
+
 
 creosote_df = occ(query = "Larrea tridentata", 
                   from = "gbif",
                   limit = 22076,
                   has_coords = TRUE)
-###############looking at predators of creosote
-woodrat_df = occ(query = "Neotoma lepida", 
-                   from = "gbif",
-                   limit = 1000,
-                   has_coords = TRUE)
-ratoccdat = occ2df(woodrat_df)
-ratloc=ratoccdat[,c('longitude', 'latitude')]
-
-kangroo_df = occ(query = "Dipodomys", 
-                 from = "gbif",
-                 limit = 20000,
-                 has_coords = TRUE)
-kangoccdat = occ2df(kangroo_df)
-kangoccdat = filter(kangoccdat, latitude < 40) %>% filter (latitude > 20) %>%
-  filter(longitude > -125) %>% filter(longitude < -100 )
-kangloc=kangoccdat[,c('longitude', 'latitude')]
-kangloc = kangloc[-occ2thin,]
-
-#######################################
-map_leaflet(creosote_df)
-
 
 occdat <- occ2df(creosote_df)
 occdat_filtered = occdat
@@ -44,18 +23,18 @@ occdat_filtered = occdat
 occdat_filtered = filter(occdat, latitude < 40) %>% filter (latitude > 20) %>%
   filter(longitude > -125) %>% filter(longitude < -100 )
 
-
-
 #sort(creosote_df2$date, decreasing = FALSE)
-
 #clim = raster::stack(list.files('/usr/share/data/wc2.0/bio2.5/', pattern='.tif', full.names = TRUE))
 #crop climate data down to north america
-
 #plot data points on a climate map 
 
 wc = getData('worldclim', var='bio', res = 5)
 
-ext=extent(c(-125, -85, 10, 40))
+#extents
+ext=extent(c(-125, -85, 10, 40)) #orginal ext southern US and mexico
+paleo_ext = extent(c(-125, -20, -60, 40)) #Bounds to see from southern United states through Southern south america
+paleo_central_america_ext = extent(c(-125, -25, -40, 30)) #closer look at central america
+##
 wc2 = wc[[c('bio1', 'bio12', 'bio2', 'bio3')]] #annual factors (best so far)
 wc3 = wc[[c('bio5', 'bio14', 'bio17', 'bio18')]] #Dryness and heat factors
 wc4 = wc[[c('bio14', 'bio17', 'bio18')]] # extreme Dryness factors
@@ -80,11 +59,9 @@ occ2thin = poThin(
 
 loc = loc[-occ2thin,]
 
-
+#Eval for the Tridentata
 eval = ENMevaluate(occ=as.data.frame(loc), env = predictors, method='block', parallel=FALSE, fc=c("L", "LQ"), RMvalues=seq(0.5, 2, 0.5), rasterPreds=T)
 best=which(eval@results$AICc == min(eval@results$AICc))
-
-
 
 
 plot(eval@predictions[[best]]) #green is high model score
@@ -96,10 +73,8 @@ ev = evaluate(est.loc, est.bg)
 thr = threshold(ev)
 plot(eval@predictions[[best]] > thr$equal_sens_spec, col = c('lightgrey', 'black'))
 points(loc, pch = 20, cex= 0.1, col ='blue')
-points(ratloc, pch = 20, cex= 1, col ='red')
-points(kangloc, pch = 20, cex = 1, col = 'green')
 
-#png('wc3.png')
+
 #plot(eval@predictions[[best]] > thr$equal_sens_spec, col = c('lightgrey', 'black'))
 
 
@@ -114,7 +89,7 @@ divaoccdat = occ2df(diva_df)
 divaoccdat = filter(divaoccdat, latitude < 15) %>% filter (latitude > -60) %>%
   filter(longitude > -90) %>% filter(longitude < -35 )
 divaloc=divaoccdat[,c('longitude', 'latitude')]
-divaloc = divaloc[-occ2thin,]
+#divaloc = divaloc[-occ2thin,]
 
 transfer = extent(c(-90, -35, -60, 15))
 trans.wc2 = crop(wc2, paleo_ext)
@@ -130,8 +105,6 @@ thr = threshold(ev)
 
 
 ### calculate niche overlap between L. tridentata model and L. divaricata
-
-
 #ENMeval >  best model for divaricata
 diva_eval = ENMevaluate(occ=as.data.frame(divaloc), env = predictors, method='block', parallel=FALSE, fc=c("L", "LQ"), RMvalues=seq(0.5, 2, 0.5), rasterPreds=T)
 diva_best=which(diva_eval@results$AICc == min(diva_eval@results$AICc))
@@ -141,20 +114,22 @@ best=which(eval@results$AICc == min(eval@results$AICc))
 
 trid_predict = predict(wc2, eval@models[[best]], type = "cloglog")
 diva_predict = predict(wc2, diva_eval@models[[best]], type = "cloglog")
-#no = nicheOverlap(pred.div, pred.tri, stat='D', mask=FALSE, checkNegatives=FALSE)
+
 no = nicheOverlap(diva_predict, trid_predict, 
                   stat='D', mask=FALSE, checkNegatives=FALSE) 
 head(no)
-#Pulling paleo raster from the last glacial maximum 
+
+#Pulling paleo raster from the last glacial maximum (cclgmbi)
+#I got pulled these by setting the working directory directly into the files and just saving the list
+#The numbers correspond to the same variable setups as wc from above
 paleo_plots = raster::stack(list.files( pattern='.tif', full.names = TRUE)) #cclgmbi
 paleo_plots2 = paleo_plots[[c('cclgmbi1','cclgmbi2','cclgmbi3','cclgmbi12')]] #raster using same variables
-#as wc2 but with paleo data
 paleo_plots3 = paleo_plots[[c('cclgmbi5','cclgmbi14','cclgmbi17','cclgmbi18')]] #raster using same variables
 paleo_plots4 = paleo_plots[[c('cclgmbi14','cclgmbi17','cclgmbi18')]] #extreme dryness BEST
 paleo_plots5 = paleo_plots[[c('cclgmbi5','cclgmbi9','cclgmbi10')]] #extreme heat
-paleo_plots6 = paleo_plots[[c('cclgmbi13','cclgmbi14','cclgmbi15','cclgmbi17','cclgmbi16','cclgmbi18','cclgmbi19')]] #extreme heat
-paleo_plots7 = paleo_plots[[c('cclgmbi5','cclgmbi6','cclgmbi7','cclgmbi8','cclgmbi9','cclgmbi10','cclgmbi11')]] #extreme heat
-##The other paleo maps:
+paleo_plots6 = paleo_plots[[c('cclgmbi13','cclgmbi14','cclgmbi15','cclgmbi17','cclgmbi16','cclgmbi18','cclgmbi19')]] 
+paleo_plots7 = paleo_plots[[c('cclgmbi5','cclgmbi6','cclgmbi7','cclgmbi8','cclgmbi9','cclgmbi10','cclgmbi11')]]
+##The other paleo maps: melgmbi and mrlgmbi
 second_paleo_plots = raster::stack(list.files( pattern='.tif', full.names = TRUE)) #melgmbi
 second_paleo_plots2 = second_paleo_plots[[c('melgmbi1','melgmbi2','melgmbi3','melgmbi12')]]
 second_paleo_plots4 = second_paleo_plots[[c('melgmbi14','melgmbi17','melgmbi18')]]
@@ -164,9 +139,8 @@ third_paleo_plots2 = third_paleo_plots[[c('mrlgmbi1','mrlgmbi2','mrlgmbi3','mrlg
 third_paleo_plots4 = third_paleo_plots[[c('mrlgmbi14','mrlgmbi17','mrlgmbi18')]]
 
 
-
-paleo_ext = extent(c(-125, -20, -60, 40)) #Bounds to see from southern US -- South SA
-paleo_central_america_ext = extent(c(-125, -25, -40, 30)) #Bounds to see from southern US -- South SA
+paleo_ext = extent(c(-125, -20, -60, 40)) #Bounds to see from southern United states through Southern south america
+paleo_central_america_ext = extent(c(-125, -25, -40, 30)) #closer look at central america
 
 names(paleo_plots2) = c('bio1', 'bio2', 'bio3', 'bio12')
 paleo.paleoplots2 = crop(paleo_plots2, paleo_ext)
