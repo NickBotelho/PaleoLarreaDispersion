@@ -117,8 +117,82 @@ diva_predict = predict(wc2, diva_eval@models[[best]], type = "cloglog")
 
 no = nicheOverlap(diva_predict, trid_predict, 
                   stat='D', mask=FALSE, checkNegatives=FALSE) 
+#determine significance
+#take an equal random sample from both groups, build 2 models on the random points and calculate an overlap on that
 head(no)
 
+noTest = function(tbl1, tbl2, clim){
+  n1 = nrow(tbl1)
+  n2 = nrow(tbl2)
+  merge = rbind(tbl1, tbl2)
+  s1 = sample(nrow(merge), size=n1)
+
+  sub1 = merge[s1,]
+  sub2 = merge[-s1,]
+  
+  #enmeval
+  predictors = crop(wc2, paleo_ext)
+  s1_eval = ENMevaluate(occ=as.data.frame(sub1), env = predictors, method='block', parallel=FALSE,
+                        fc=c("L", "LQ"), RMvalues=seq(0.5, 2, 0.5), rasterPreds=T)
+  s2_eval = ENMevaluate(occ=as.data.frame(sub2), env = predictors, method='block', parallel=FALSE, 
+                        fc=c("L", "LQ"), RMvalues=seq(0.5, 2, 0.5), rasterPreds=T)
+
+  
+  s1_predict = predict(wc2, s1_eval@models[[best]], type = "cloglog")
+  s2_predict = predict(wc2, s2_eval@models[[best]], type = "cloglog")
+  
+  no = nicheOverlap(s1_predict, s2_predict, 
+                    stat='D', mask=FALSE, checkNegatives=FALSE) 
+  return(no)
+}
+nicheOverlapStored = data.frame()
+x1 = 1
+for (x1 in 1:100){
+  noTestResult = noTest(divaloc, loc, clim = clim)
+  nicheOverlapStored = rbind(nicheOverlapStored, noTestResult)
+}
+#noTest(divaloc, loc, clim = clim)
+#function to plot 70% diva, trid, and both into the past and return plots (all 3 of the past), do each diva, trid, both one at a time
+#
+
+
+plotRandomSample = function(tbl1, df, clim){
+  plotSize = floor(0.7*(nrow(tbl1)))
+  s1 = sample_n(tbl1, size=plotSize)
+  
+  predictors = crop(wc2, paleo_ext)
+  s1_eval = ENMevaluate(occ=as.data.frame(s1), env = predictors, method='block', parallel=FALSE,
+                        fc=c("L", "LQ"), RMvalues=seq(0.5, 2, 0.5), rasterPreds=T)
+  #cclgmbi
+  s1.paleoplot1 = crop(paleo_plots2, paleo_ext)
+  s1.predict1 = predict(s1.paleoplot1, s1_eval@models[[best]], type = "cloglog")
+  #plot(s1.predict1)
+  
+  #melgmbi
+  s1.paleoplot2 = crop(second_paleo_plots2, paleo_ext)
+  s1.predict2 = predict(s1.paleoplot2, s1_eval@models[[best]], type = "cloglog")
+  #plot(s1.predict2)
+  
+  #mrlgmbi
+  s1.paleoplot3 = crop(third_paleo_plots2, paleo_ext)
+  s1.predict3 = predict(s1.paleoplot3, s1_eval@models[[best]], type = "cloglog")
+  #plot(s1.predict3)
+  
+  s1.predict_df = data.frame("cclgmbi (1)" = s1.predict1,
+                                    "melgmbi (2)" = s1.predict2,
+                                    "mrlgbmi (3)" = s1.predict3)
+  df = rbind(df, s1.predict_df)
+}
+x1 = 1
+diva_predict_df = data.frame()
+for (x1 in 1:100){
+plotRandomSample(divaloc, diva_predict_df, clim = clim)
+}
+x1 = 1
+trid_predict_df = data.frame()
+for (x1 in 1:100){
+  plotRandomSample(loc, trid_predict_df, clim = clim)
+}
 #Pulling paleo raster from the last glacial maximum (cclgmbi)
 #I got pulled these by setting the working directory directly into the files and just saving the list
 #The numbers correspond to the same variable setups as wc from above
