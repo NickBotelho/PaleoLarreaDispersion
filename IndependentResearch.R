@@ -154,44 +154,41 @@ for (x1 in 1:100){
 #noTest(divaloc, loc, clim = clim)
 #function to plot 70% diva, trid, and both into the past and return plots (all 3 of the past), do each diva, trid, both one at a time
 #
+temp = eval@models[[best]]
 
-
-plotRandomSample = function(tbl1, df, clim){
+evalRandomSample = function(tbl1, clim){
   plotSize = floor(0.7*(nrow(tbl1)))
   s1 = sample_n(tbl1, size=plotSize)
   
   predictors = crop(wc2, paleo_ext)
   s1_eval = ENMevaluate(occ=as.data.frame(s1), env = predictors, method='block', parallel=FALSE,
                         fc=c("L", "LQ"), RMvalues=seq(0.5, 2, 0.5), rasterPreds=T)
-  #cclgmbi
-  s1.paleoplot1 = crop(paleo_plots2, paleo_ext)
-  s1.predict1 = predict(s1.paleoplot1, s1_eval@models[[best]], type = "cloglog")
-  #plot(s1.predict1)
   
-  #melgmbi
-  s1.paleoplot2 = crop(second_paleo_plots2, paleo_ext)
-  s1.predict2 = predict(s1.paleoplot2, s1_eval@models[[best]], type = "cloglog")
-  #plot(s1.predict2)
-  
-  #mrlgmbi
-  s1.paleoplot3 = crop(third_paleo_plots2, paleo_ext)
-  s1.predict3 = predict(s1.paleoplot3, s1_eval@models[[best]], type = "cloglog")
-  #plot(s1.predict3)
-  
-  s1.predict_df = data.frame("cclgmbi (1)" = s1.predict1,
-                                    "melgmbi (2)" = s1.predict2,
-                                    "mrlgbmi (3)" = s1.predict3)
-  df = rbind(df, s1.predict_df)
+  return(s1_eval@models[[best]])
+}
+plotRandomSample =function(raster1, modelBest, plot, clim){
+  s1.paleoplot1 = crop(plot, paleo_ext)
+  s1.predict1 = predict(s1.paleoplot1, modelBest, type = "cloglog")
+  raster1 = addLayer(raster1, s1.predict1)
+  return(raster1)
 }
 x1 = 1
-diva_predict_df = data.frame()
+diva_cclgmbi = raster()
+diva_melgmbi = raster()
+diva_mrlgmbi = raster()
 for (x1 in 1:100){
-plotRandomSample(divaloc, diva_predict_df, clim = clim)
+tempBest = evalRandomSample(divaloc, clim = clim)
+diva_cclgmbi = plotRandomSample(diva_cclgmbi, tempBest, paleo_plots2, clim = clim)
+diva_melgmbi = plotRandomSample(diva_melgmbi, tempBest, second_paleo_plots2, clim = clim)
+diva_mrlgmbi = plotRandomSample(diva_mrlgmbi, tempBest, third_paleo_plots2, clim = clim)
+trid_cclgmbi = plotRandomSample(trid_cclgmbi, tempBest, third_paleo_plots2, clim = clim)
 }
 x1 = 1
-trid_predict_df = data.frame()
+trid_cclgmbi = raster()
+trid_melgmbi = raster()
+trid_mrlgmbi = raster()
 for (x1 in 1:100){
-  plotRandomSample(loc, trid_predict_df, clim = clim)
+  plotRandomSample(loc, trid_cclgmbi, trid_melgmbi, trid_mrlgmbi, clim = clim)
 }
 #Pulling paleo raster from the last glacial maximum (cclgmbi)
 #I got pulled these by setting the working directory directly into the files and just saving the list
@@ -230,5 +227,7 @@ names(third_paleo_plots2) = c('bio1', 'bio2', 'bio3', 'bio12')
 paleo.third_paleoplots2 = crop(third_paleo_plots2, paleo_ext)
 paleo.predict3 = predict(paleo.third_paleoplots2, eval@models[[best]], type = "cloglog")
 plot(paleo.predict3)
+
+
 
 
