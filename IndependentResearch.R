@@ -11,6 +11,7 @@ library(ggplot2)
 library(RSpatial)
 library(parallel)
 library(maxnet)
+library(ggpubr)
 devtools::install_github('oshea-patrick/RSpatial')
 
 
@@ -161,12 +162,14 @@ temp = eval@models[[best]]
 
 predictors = crop(wc2, paleo_ext)
 evalRandomSample = function(tbl1, clim, predictors){
-  plotSize = floor(0.3*(nrow(tbl1)))
+  plotSize = floor(0.6*(nrow(tbl1)))
+  #plotPercentage = runif(1, min = 0.2, max = 0.95)
+  #plotSize = floor( (plotPercentage)*(nrow(tbl1)))
   s1 = sample_n(tbl1, size=plotSize)
   
   s1_eval = ENMevaluate(occ=as.data.frame(s1), env = predictors, method='block', parallel=FALSE,
                         fc=c("L", "LQ"), RMvalues=seq(0.5, 2, 0.5), rasterPreds=T)
-  # tempBest=s1_eval@models[[which(s1_eval@results$AICc == min(s1_eval@results$AICc))]]
+   #tempBest=s1_eval@models[[which(s1_eval@results$AICc == min(s1_eval@results$AICc))]]
   
   best=which(s1_eval@results$AICc == min(s1_eval@results$AICc))
   
@@ -195,7 +198,7 @@ evalRandomSample = function(tbl1, clim, predictors){
     regmult = as.numeric(rm)
   )
   return(best_mod)
-  # return(tempBest)
+   #return(tempBest)
 }
 paleo_plots2_crop = crop(paleo_plots2, paleo_ext)
 second_paleo_plots2_crop = crop(second_paleo_plots2, paleo_ext)
@@ -232,6 +235,56 @@ stopCluster(cl)
 diva_cclgmbi = p_works2[[1]][[2]]
 diva_melgmbi = p_works2[[1]][[3]]
 diva_mrlgmbi = p_works2[[1]][[4]]
+tempBestList = list()
+
+for (i in 1:10){
+  tempBest = evalRandomSample(divaloc, clim = clim, predictors)
+  tempBestList[i] = tempBest
+}
+tempBestListOLD = list()
+for (i in 1:10){
+  tempBest = evalRandomSample(divaloc, clim = clim, predictors)
+  tempBestListOLD[i] = tempBest
+}
+diva_cclgmbi = raster()
+diva_melgmbi = raster()
+diva_mrlgmbi = raster()
+diva_wc2 = raster()
+counter = 0
+for (i in 1:50){
+  tempBest = evalRandomSample(divaloc, clim = clim, predictors)
+  nextLayer = plotRandomSample(diva_cclgmbi, tempBest, paleo_plots2_crop, clim = clim, "diva_cclgmbi")
+  diva_cclgmbi = stack(diva_cclgmbi, nextLayer)
+  nextLayer = plotRandomSample(diva_melgmbi, tempBest, second_paleo_plots2_crop, clim = clim, "diva_melgmbi")
+  diva_melgmbi = stack(diva_melgmbi, nextLayer)
+  nextLayer = plotRandomSample(diva_cclgmbi, tempBest, third_paleo_plots2_crop, clim = clim, "diva_mrlgmbi")
+  diva_mrlgmbi = stack(diva_mrlgmbi, nextLayer)
+  nextLayer = plotRandomSample(diva_cclgmbi, tempBest, predictors, clim = clim, "diva_wc2")
+  diva_wc2 = stack(diva_wc2, nextLayer)
+  counter = counter + 1
+}
+for (i in 1:50){
+  tempBest = evalRandomSample(loc, clim = clim, predictors)
+  nextLayer = plotRandomSample(trid_cclgmbi, tempBest, paleo_plots2_crop, clim = clim, "trid_cclgmbi")
+  trid_cclgmbi = stack(trid_cclgmbi, nextLayer)
+  nextLayer = plotRandomSample(trid_melgmbi, tempBest, second_paleo_plots2_crop, clim = clim, "trid_melgmbi")
+  trid_melgmbi = stack(trid_melgmbi, nextLayer)
+  nextLayer = plotRandomSample(trid_cclgmbi, tempBest, third_paleo_plots2_crop, clim = clim, "trid_mrlgmbi")
+  trid_mrlgmbi = stack(trid_mrlgmbi, nextLayer)
+  nextLayer = plotRandomSample(trid_cclgmbi, tempBest, predictors, clim = clim, "trid_wc2")
+  trid_wc2 = stack(trid_wc2, nextLayer)
+}
+for (i in 1:50){
+  tempBest = evalRandomSample(combinedloc, clim = clim, predictors)
+  nextLayer = plotRandomSample(combined_cclgmbi, tempBest, paleo_plots2_crop, clim = clim, "combined_cclgmbi")
+  combined_cclgmbi = stack(combined_cclgmbi, nextLayer)
+  nextLayer = plotRandomSample(combined_melgmbi, tempBest, second_paleo_plots2_crop, clim = clim, "combined_melgmbi")
+  combined_melgmbi = stack(combined_melgmbi, nextLayer)
+  nextLayer = plotRandomSample(combined_cclgmbi, tempBest, third_paleo_plots2_crop, clim = clim, "combined_mrlgmbi")
+  combined_mrlgmbi = stack(combined_mrlgmbi, nextLayer)
+  nextLayer = plotRandomSample(combined_cclgmbi, tempBest, predictors, clim = clim, "combined_wc2")
+  combined_wc2 = stack(combined_wc2, nextLayer)
+}
 
 for(i in 2:length(p_works2)){
   diva_cclgmbi = stack(diva_cclgmbi, p_works2[[i]][[2]])
@@ -268,8 +321,8 @@ sub_paleopredict <- function(x){
   trid_cclgmbi = plotRandomSample(trid_cclgmbi, tempBest, paleo_plots2_crop, clim = clim, "trid_cclgmbi")
   trid_melgmbi = plotRandomSample(trid_melgmbi, tempBest, second_paleo_plots2_crop, clim = clim, "trid_melgmbi")
   trid_mrlgmbi = plotRandomSample(trid_mrlgmbi, tempBest, third_paleo_plots2_crop, clim = clim, "trid_mrlgmbi")
-  trid_wc2 = plotRandomSample(trid_wc2, tempBest, predictors, clim= clim, "trid_wc2")
-  ret = list(x, trid_cclgmbi, trid_melgmbi, trid_mrlgmbi, trid_wc2)
+  #trid_wc2 = plotRandomSample(trid_wc2, tempBest, predictors, clim= clim, "trid_wc2")
+  ret = list(x, trid_cclgmbi, trid_melgmbi, trid_mrlgmbi)
   return(ret)
 }
 
@@ -280,14 +333,14 @@ stopCluster(cl)
   trid_cclgmbi = p_works2[[1]][[2]]
   trid_melgmbi = p_works2[[1]][[3]]
   trid_mrlgmbi = p_works2[[1]][[4]]
-  trid_wc2 = p_works2[[1]][[5]]
+ # trid_wc2 = p_works2[[1]][[5]]
   stopCluster(cl)
   
   for(i in 2:length(p_works2)){
     trid_cclgmbi = stack(trid_cclgmbi, p_works2[[i]][[2]])
     trid_melgmbi = stack(trid_melgmbi, p_works2[[i]][[3]])
     trid_mrlgmbi = stack(trid_mrlgmbi, p_works2[[i]][[4]])
-    trid_wc2 = stack(trid_wc2, p_works2[[i]][[5]])
+   # trid_wc2 = stack(trid_wc2, p_works2[[i]][[5]])
   }
 
 #Tridentata Results##
